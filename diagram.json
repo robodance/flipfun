@@ -1,0 +1,28 @@
+{
+	"version": 1,
+	"author": "",
+	"editor": "wokwi",
+	"parts": [
+		{ "type": "wokwi-arduino-uno", "id": "uno", "top": -53.33, "left": 4.67, "attrs": {} },
+		{ "type": "board-ssd1306", "id": "oled1", "top": 178.21, "left": 117.97, "attrs": {} },
+		{ "type": "wokwi-pushbutton", "id": "btn1", "top": 50, "left": 50, "attrs": {} },
+		{ "type": "wokwi-pushbutton", "id": "btn2", "top": 50, "left": 100, "attrs": {} },
+		{ "type": "wokwi-pushbutton", "id": "btn3", "top": 50, "left": 150, "attrs": {} },
+		{ "type": "wokwi-pushbutton", "id": "btn4", "top": 50, "left": 200, "attrs": {} }
+	  ],
+	  "connections": [
+		[ "oled1:SDA", "uno:A4", "green", [ "v-18.64", "h54.13" ] ],
+		[ "oled1:SCL", "uno:A5", "green", [ "v-27.97", "h86.63" ] ],
+		[ "uno:GND.3", "oled1:GND", "black", [ "v13.86", "h-26.67" ] ],
+		[ "uno:5V", "oled1:VCC", "red", [ "v0" ] ],
+		[ "btn1:1.l", "uno:3", "green", [] ],
+		[ "btn1:2.l", "uno:GND.1", "black", [] ],
+		[ "btn2:1.l", "uno:4", "green", [] ],
+		[ "btn2:2.l", "uno:GND.2", "black", [] ],
+		[ "btn3:1.l", "uno:5", "green", [] ],
+		[ "btn3:2.l", "uno:GND.3", "black", [] ],
+		[ "btn4:1.l", "uno:6", "green", [] ],
+		[ "btn4:2.l", "uno:GND.4", "black", [] ]
+	  ],
+	"dependencies": {}
+  }
