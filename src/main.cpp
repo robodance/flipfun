@@ -1,17 +1,19 @@
 #include <Arduino.h>
 #include <BROSE9323.h>
 
-#define WIDTH 16   // screen width in pixels
-#define HEIGHT 84  // screen height in pixels
 #define BUZZER 12  // buzzer connection port
 #define left 3     // button connection ports
 #define right 4
 #define change 5
 #define down 6
 #define WHITE 1
-#define DEFAULT_INTERVAL 4000
+#define DEFAULT_INTERVAL 700
 
-BROSE9323 display(112, 16, 28);
+#define WIDTH 16   // screen width in pixels
+#define HEIGHT 84  // screen height in pixels
+#define PANEL_WIDTH 28
+
+BROSE9323 display(HEIGHT, WIDTH, PANEL_WIDTH);
 
 // matrix for "S" shape
 const char pieces_S_l[2][2][4] = {{{0, 0, 1, 1}, {0, 1, 1, 2}},
@@ -91,7 +93,7 @@ void drawGrid() {
   for (short x = 0; x < WIDTH; x++)
     for (short y = 0; y < HEIGHT / SIZE; y++)
       if (grid[x][y])
-        display.fillRect(MARGIN_LEFT + (x * 2), MARGIN_TOP + (y * 2), SIZE, SIZE, WHITE);
+        display.fillRect(MARGIN_LEFT + ((HEIGHT / SIZE - 1 - y) * 2), MARGIN_TOP + (x * 2), SIZE, SIZE, WHITE);
 }
 
 boolean nextHorizontalCollision(short piece[2][4], int amount) {
@@ -169,7 +171,7 @@ void generate() {
 
 void drawPiece(short type, short rotation, short x, short y) {
   for (short i = 0; i < 4; i++)
-    display.fillRect(MARGIN_LEFT + ((x + piece[0][i]) * 2), MARGIN_TOP + ((y + piece[1][i]) * 2), SIZE, SIZE, WHITE);
+    display.fillRect(MARGIN_LEFT + ((HEIGHT / SIZE - 1 - (y + piece[1][i])) * 2), MARGIN_TOP + ((x + piece[0][i]) * 2), SIZE, SIZE, WHITE);
 }
 
 short getMaxRotation(short type) {
