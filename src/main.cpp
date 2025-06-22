@@ -1,7 +1,8 @@
 #include <Arduino.h>
-#include "Wire.h"
+
 #include "Adafruit_GFX.h"
 #include "Adafruit_SSD1306.h"
+#include "Wire.h"
 
 #define WIDTH 16   // screen width in pixels
 #define HEIGHT 84  // screen height in pixels
@@ -11,29 +12,29 @@
 #define change 5
 #define down 6
 
-Adafruit_SSD1306 display(HEIGHT, WIDTH, &Wire, -1);
+Adafruit_SSD1306 display(HEIGHT, WIDTH * 2, &Wire, -1);
 
 // matrix for "S" shape
-const char pieces_S_l[2][2][4] = {{ {0, 0, 1, 1}, {0, 1, 1, 2} },
-                                  { {0, 1, 1, 2}, {1, 1, 0, 0} }};
+const char pieces_S_l[2][2][4] = {{{0, 0, 1, 1}, {0, 1, 1, 2}},
+                                  {{0, 1, 1, 2}, {1, 1, 0, 0}}};
 // matrix for "S" shape
-const char pieces_S_r[2][2][4] = {{ {1, 1, 0, 0}, {0, 1, 1, 2} },
-                                  { {0, 1, 1, 2}, {0, 0, 1, 1} }};
+const char pieces_S_r[2][2][4] = {{{1, 1, 0, 0}, {0, 1, 1, 2}},
+                                  {{0, 1, 1, 2}, {0, 0, 1, 1}}};
 // matrix for "L" shape
-const char pieces_L_l[4][2][4] = {{ {0, 0, 0, 1}, {0, 1, 2, 2} },
-                                  { {0, 1, 2, 2}, {1, 1, 1, 0} },
-                                  { {0, 1, 1, 1}, {0, 0, 1, 2} },
-                                  { {0, 0, 1, 2}, {1, 0, 0, 0} }};
+const char pieces_L_l[4][2][4] = {{{0, 0, 0, 1}, {0, 1, 2, 2}},
+                                  {{0, 1, 2, 2}, {1, 1, 1, 0}},
+                                  {{0, 1, 1, 1}, {0, 0, 1, 2}},
+                                  {{0, 0, 1, 2}, {1, 0, 0, 0}}};
 // matrix for "square" shape
-const char pieces_Sq[1][2][4] = {{ {0, 1, 0, 1}, {0, 0, 1, 1} }};
+const char pieces_Sq[1][2][4] = {{{0, 1, 0, 1}, {0, 0, 1, 1}}};
 // matrix for "T" shape
-const char pieces_T[4][2][4] = {{ {0, 0, 1, 0}, {0, 1, 1, 2} },
-                                { {0, 1, 1, 2}, {1, 0, 1, 1} },
-                                { {1, 0, 1, 1}, {0, 1, 1, 2} },
-                                { {0, 1, 1, 2}, {0, 0, 1, 0} }};
+const char pieces_T[4][2][4] = {{{0, 0, 1, 0}, {0, 1, 1, 2}},
+                                {{0, 1, 1, 2}, {1, 0, 1, 1}},
+                                {{1, 0, 1, 1}, {0, 1, 1, 2}},
+                                {{0, 1, 1, 2}, {0, 0, 1, 0}}};
 // matrix for "I" shape
-const char pieces_l[2][2][4] = {{ {0, 1, 2, 3}, {0, 0, 0, 0} },
-                                { {0, 0, 0, 0}, {0, 1, 2, 3}}};
+const char pieces_l[2][2][4] = {{{0, 1, 2, 3}, {0, 0, 0, 0}},
+                                {{0, 0, 0, 0}, {0, 1, 2, 3}}};
 
 const short MARGIN_TOP = 0;
 const short MARGIN_LEFT = 0;
@@ -43,18 +44,17 @@ const int MELODY_LENGTH = 10;
 const int MELODY_NOTES[MELODY_LENGTH] = {262, 294, 330, 262};
 const int MELODY_DURATIONS[MELODY_LENGTH] = {500, 500, 500, 500};
 
-int click[] = { 1047 };
-int click_duration[] = { 100 };
-int erase[] = { 2093 };
-int erase_duration[] = { 100 };
+int click[] = {1047};
+int click_duration[] = {100};
+int erase[] = {2093};
+int erase_duration[] = {100};
 word currentType, nextType, rotation;
 short pieceX, pieceY;
 short piece[2][4];
 int interval = 20, score;
 long timer, delayer;
-boolean grid[WIDTH][HEIGHT/SIZE];  // Dynamic grid size based on display dimensions
+boolean grid[WIDTH][HEIGHT / SIZE];  // Dynamic grid size based on display dimensions
 boolean b1, b2, b3;
-
 
 void breakLine(short line) {
   tone(BUZZER, erase[0], 1000 / erase_duration[0]);
@@ -76,18 +76,21 @@ void breakLine(short line) {
 
 void checkLines() {
   boolean full;
-  for (short y = HEIGHT/SIZE - 1; y >= 0; y--) {
+  for (short y = HEIGHT / SIZE - 1; y >= 0; y--) {
     full = true;
     for (short x = 0; x < WIDTH; x++) {
       full = full && grid[x][y];
     }
-    if (full) { breakLine(y); y++; }
+    if (full) {
+      breakLine(y);
+      y++;
+    }
   }
 }
 
 void drawGrid() {
   for (short x = 0; x < WIDTH; x++)
-    for (short y = 0; y < HEIGHT/SIZE; y++)
+    for (short y = 0; y < HEIGHT / SIZE; y++)
       if (grid[x][y])
         display.fillRect(MARGIN_LEFT + (x * 2), MARGIN_TOP + (y * 2), SIZE, SIZE, WHITE);
 }
@@ -95,7 +98,7 @@ void drawGrid() {
 boolean nextHorizontalCollision(short piece[2][4], int amount) {
   for (short i = 0; i < 4; i++) {
     short newX = pieceX + piece[0][i] + amount;
-    if (newX > WIDTH - 1 || newX < 0 || grid[newX][pieceY + piece[1][i]])
+    if (newX >= (WIDTH / SIZE) || newX < 0 || grid[newX][pieceY + piece[1][i]])
       return true;
   }
   return false;
@@ -105,7 +108,7 @@ boolean nextCollision() {
   for (short i = 0; i < 4; i++) {
     short y = pieceY + piece[1][i] + 1;
     short x = pieceX + piece[0][i];
-    if (y > (HEIGHT/SIZE - 1) || grid[x][y])  // Dynamic bottom check
+    if (y >= (HEIGHT / SIZE) || x >= (WIDTH / SIZE) || grid[x][y])
       return true;
   }
   return false;
@@ -113,37 +116,37 @@ boolean nextCollision() {
 
 void copyPiece(short piece[2][4], short type, short rotation) {
   switch (type) {
-    case 0: //L_l
+    case 0:  // L_l
       for (short i = 0; i < 4; i++) {
         piece[0][i] = pieces_L_l[rotation][0][i];
         piece[1][i] = pieces_L_l[rotation][1][i];
       }
       break;
-    case 1: //S_l
+    case 1:  // S_l
       for (short i = 0; i < 4; i++) {
         piece[0][i] = pieces_S_l[rotation][0][i];
         piece[1][i] = pieces_S_l[rotation][1][i];
       }
       break;
-    case 2: //S_r
+    case 2:  // S_r
       for (short i = 0; i < 4; i++) {
         piece[0][i] = pieces_S_r[rotation][0][i];
         piece[1][i] = pieces_S_r[rotation][1][i];
       }
       break;
-    case 3: //Sq
+    case 3:  // Sq
       for (short i = 0; i < 4; i++) {
         piece[0][i] = pieces_Sq[0][0][i];
         piece[1][i] = pieces_Sq[0][1][i];
       }
       break;
-    case 4: //T
+    case 4:  // T
       for (short i = 0; i < 4; i++) {
         piece[0][i] = pieces_T[rotation][0][i];
         piece[1][i] = pieces_T[rotation][1][i];
       }
       break;
-    case 5: //l
+    case 5:  // l
       for (short i = 0; i < 4; i++) {
         piece[0][i] = pieces_l[rotation][0][i];
         piece[1][i] = pieces_l[rotation][1][i];
@@ -156,9 +159,10 @@ void generate() {
   currentType = nextType;
   nextType = random(TYPES);
   if (currentType != 5)
-    pieceX = random(WIDTH);
+    pieceX = random(WIDTH) / SIZE;
   else
-    pieceX = random(WIDTH - 2);
+    pieceX = random(WIDTH - 2) / SIZE;
+
   pieceY = 0;
   rotation = 0;
   copyPiece(piece, currentType, rotation);
@@ -179,7 +183,6 @@ short getMaxRotation(short type) {
   else
     return 0;
 }
-
 
 boolean canRotate(short rotation) {
   short piece[2][4];
@@ -217,10 +220,6 @@ void setup() {
   display.setTextColor(SSD1306_WHITE);
 
   display.clearDisplay();
-  display.fillRect(0, 0, WIDTH, HEIGHT, WHITE);  // Debug rectangle
-  display.display();
-  delay(5000);
-
 
   randomSeed(analogRead(0));
   nextType = random(TYPES);
