@@ -1,0 +1,5 @@
+{
+    "editor.formatOnSave": true,
+    "C_Cpp.clang_format_style": "{ BasedOnStyle: Google, IndentWidth: 2, ColumnLimit: 0, AllowShortFunctionsOnASingleLine: Empty, BraceWrapping: { AfterClass: false, AfterControlStatement: false, AfterEnum: false, AfterFunction: false, AfterNamespace: false, AfterStruct: false, AfterUnion: false, BeforeCatch: false, BeforeElse: false, IndentBraces: false } }",
+    "editor.defaultFormatter": "ms-vscode.cpptools"
+}
