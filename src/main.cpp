@@ -1,8 +1,5 @@
 #include <Arduino.h>
-
-#include "Adafruit_GFX.h"
-#include "Adafruit_SSD1306.h"
-#include "Wire.h"
+#include <BROSE9323.h>
 
 #define WIDTH 16   // screen width in pixels
 #define HEIGHT 84  // screen height in pixels
@@ -11,8 +8,10 @@
 #define right 4
 #define change 5
 #define down 6
+#define WHITE 1
+#define DEFAULT_INTERVAL 4000
 
-Adafruit_SSD1306 display(HEIGHT, WIDTH * 2, &Wire, -1);
+BROSE9323 display(112, 16, 28);
 
 // matrix for "S" shape
 const char pieces_S_l[2][2][4] = {{{0, 0, 1, 1}, {0, 1, 1, 2}},
@@ -51,7 +50,7 @@ int erase_duration[] = {100};
 word currentType, nextType, rotation;
 short pieceX, pieceY;
 short piece[2][4];
-int interval = 20, score;
+int interval = DEFAULT_INTERVAL, score;
 long timer, delayer;
 boolean grid[WIDTH][HEIGHT / SIZE];  // Dynamic grid size based on display dimensions
 boolean b1, b2, b3;
@@ -200,7 +199,8 @@ short getNumberLength(int n) {
 }
 
 void refresh() {
-  display.clearDisplay();
+  display.fillScreen(0);
+  display.display();
   drawGrid();
   drawPiece(currentType, 0, pieceX, pieceY);
   display.display();
@@ -213,13 +213,13 @@ void setup() {
   pinMode(down, INPUT_PULLUP);
   pinMode(BUZZER, OUTPUT);
 
-  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
-  display.setRotation(1);
+  display.begin();
+  delay(1000);
 
-  display.clearDisplay();
-  display.setTextColor(SSD1306_WHITE);
-
-  display.clearDisplay();
+  display.fillScreen(1);
+  display.display();
+  display.fillScreen(0);
+  display.display();
 
   randomSeed(analogRead(0));
   nextType = random(TYPES);
@@ -273,10 +273,10 @@ void loop() {
   }
 
   // when "down" button is pressed
-  if (!digitalRead(down)) {
+  if (digitalRead(down)) {
     interval = 20;
   } else {
-    interval = 400;
+    interval = DEFAULT_INTERVAL;
   }
 
   // when "change" button is pressed
