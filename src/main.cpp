@@ -2,8 +2,10 @@
 #include <BROSE9323.h>
 #include <GameControllers.h>
 
+// #define DEBUG  // Comment this line to disable serial debug output
+
 #define WHITE 1
-#define DEFAULT_INTERVAL 700
+#define DEFAULT_INTERVAL 300
 
 #define WIDTH 16   // screen width in pixels
 #define HEIGHT 84  // screen height in pixels
@@ -58,34 +60,92 @@ short prevPieceX, prevPieceY;  // Track previous piece position
 short piece[2][4];
 short prevPiece[2][4];  // Track previous piece data
 int interval = DEFAULT_INTERVAL, score;
+int progressiveInterval = DEFAULT_INTERVAL;  // Track the progressive difficulty interval
 long timer, delayer;
 boolean grid[WIDTH][HEIGHT / SIZE];  // Dynamic grid size based on display dimensions
 boolean b1, b2, b3;
-boolean gamePaused = false;  // Track pause state
+boolean gamePaused = false;
+boolean gameOver = false;
+
+void clearDisplay(int delayMs = 0) {
+  display.fillScreen(1);
+  display.display();
+  delay(delayMs);
+  display.fillScreen(0);
+  display.display();
+}
 
 void breakLine(short line) {
-  for (short y = line; y >= 0; y--) {
-    for (short x = 0; x < WIDTH; x++) {
+  // Clear the broken line on display immediately
+  for (short x = 0; x < WIDTH / SIZE; x++) {
+    display.fillRect(MARGIN_LEFT + ((HEIGHT / SIZE - 1 - line) * 2), MARGIN_TOP + (x * 2), SIZE, SIZE, 0);
+  }
+
+  // Clear lines above that have pieces (will fall down)
+  for (short y = line - 1; y >= 0; y--) {
+    boolean hasPieces = false;
+    for (short x = 0; x < WIDTH / SIZE; x++) {
+      if (grid[x][y]) {
+        hasPieces = true;
+        break;
+      }
+    }
+    if (hasPieces) {
+      // Clear this line on display since it will fall down
+      for (short x = 0; x < WIDTH / SIZE; x++) {
+        display.fillRect(MARGIN_LEFT + ((HEIGHT / SIZE - 1 - y) * 2), MARGIN_TOP + (x * 2), SIZE, SIZE, 0);
+      }
+      delay(10);
+    }
+  }
+
+  // Shift all lines above the cleared line down by one
+  for (short y = line; y > 0; y--) {
+    for (short x = 0; x < WIDTH / SIZE; x++) {
       grid[x][y] = grid[x][y - 1];
     }
   }
-  for (short x = 0; x < WIDTH; x++) {
+  // Clear the top line
+  for (short x = 0; x < WIDTH / SIZE; x++) {
     grid[x][0] = 0;
   }
-  display.invertDisplay(true);
-  delay(50);
-  display.invertDisplay(false);
   score += 10;
 }
 
 void checkLines() {
+#ifdef DEBUG
+  // Debug: Print the full grid state
+  Serial.println("=== Grid State ===");
+  for (short y = 0; y < HEIGHT / SIZE; y++) {
+    Serial.print("Line ");
+    if (y < 10) {
+      Serial.print("0");
+    }
+    Serial.print(y);
+    Serial.print(": ");
+    for (short x = 0; x < WIDTH / SIZE; x++) {
+      if (grid[x][y]) {
+        Serial.print("X");
+      } else {
+        Serial.print(".");
+      }
+    }
+    Serial.println();
+  }
+  Serial.println("==================");
+#endif
+
   boolean full;
   for (short y = HEIGHT / SIZE - 1; y >= 0; y--) {
     full = true;
-    for (short x = 0; x < WIDTH; x++) {
+    for (short x = 0; x < WIDTH / SIZE; x++) {
       full = full && grid[x][y];
     }
     if (full) {
+#ifdef DEBUG
+      Serial.print("Full line detected at y=");
+      Serial.println(y);
+#endif
       breakLine(y);
       y++;
     }
@@ -174,17 +234,22 @@ short getMaxRotation(short type) {
     return 0;
 }
 
-void generate() {
-  randomSeed(millis());
-  currentType = getNextType();
-  if (currentType != 5)
-    pieceX = random(WIDTH) / SIZE;
-  else
-    pieceX = random(WIDTH - 2) / SIZE;
+boolean isValidPiecePosition(short x, short y, short piece[2][4]) {
+  for (short i = 0; i < 4; i++) {
+    short checkX = x + piece[0][i];
+    short checkY = y + piece[1][i];
 
-  pieceY = 0;
-  rotation = random(0, getMaxRotation(currentType) - 1);
-  copyPiece(piece, currentType, rotation);
+    // Check if any part of the piece is outside the grid boundaries
+    if (checkX < 0 || checkX >= WIDTH / SIZE || checkY < 0 || checkY >= HEIGHT / SIZE) {
+      return false;
+    }
+
+    // Check if any part of the piece overlaps with existing grid pieces
+    if (grid[checkX][checkY]) {
+      return false;
+    }
+  }
+  return true;
 }
 
 void drawPiece(short x, short y) {
@@ -245,14 +310,6 @@ void refresh() {
   display.display();
 }
 
-void clearDisplay() {
-  display.fillScreen(1);
-  display.display();
-  delay(100);
-  display.fillScreen(0);
-  display.display();
-}
-
 void initializePieceData() {
   prevPieceX = pieceX;
   prevPieceY = pieceY;
@@ -263,15 +320,65 @@ void initializePieceData() {
   }
 }
 
+void generate() {
+  randomSeed(millis());
+  currentType = getNextType();
+
+  // Decrease progressive interval by 2, but not below 50
+  if (progressiveInterval > 50) {
+    progressiveInterval -= 2;
+  }
+
+  // Try to find a valid position for the piece
+  boolean validPosition = false;
+  short attempts = 0;
+  const short maxAttempts = 50;  // Prevent infinite loops
+
+  while (!validPosition && attempts < maxAttempts) {
+    // Try different X positions
+    if (currentType != 5) {
+      pieceX = random(WIDTH / SIZE);
+    } else {
+      pieceX = random(WIDTH / SIZE - 2);
+    }
+
+    pieceY = 0;
+    rotation = random(0, getMaxRotation(currentType));
+    copyPiece(piece, currentType, rotation);
+
+    // Check if this position is valid
+    validPosition = isValidPiecePosition(pieceX, pieceY, piece);
+    attempts++;
+  }
+
+  // If we couldn't find a valid position, try with rotation 0 and center position
+  if (!validPosition) {
+    pieceX = (WIDTH / SIZE) / 2;
+    pieceY = 0;
+    rotation = 0;
+    copyPiece(piece, currentType, rotation);
+
+    // If still not valid, the game is probably over
+    if (!isValidPiecePosition(pieceX, pieceY, piece)) {
+      // Game over
+      clearDisplay(200);
+      gameOver = true;
+    }
+  }
+}
+
 void startNewGame() {
   // Generate new piece
-  clearDisplay();
+  clearDisplay(100);
   generate();
   initializePieceData();
   timer = millis();
 }
 
 void resetGame() {
+  gameOver = false;
+  gamePaused = false;
+
   // Clear the grid
   for (short x = 0; x < WIDTH; x++) {
     for (short y = 0; y < HEIGHT / SIZE; y++) {
@@ -281,7 +388,7 @@ void resetGame() {
 
   // Reset game variables
   score = 0;
-  interval = DEFAULT_INTERVAL;
+  progressiveInterval = DEFAULT_INTERVAL;  // Reset progressive interval
   gamePaused = false;
 
   // Start new game
@@ -294,6 +401,12 @@ void setup() {
   // activate first controller ans set the type to SNES
   controllers.setController(0, GameControllers::SNES, DATA_PIN_0);
 
+#ifdef DEBUG
+  // Initialize serial for debug output
+  Serial.begin(9600);
+  Serial.println("Fliptris starting...");
+#endif
+
   display.begin();
   delay(1000);
 
@@ -303,6 +416,14 @@ void setup() {
 
 void loop() {
   controllers.poll();
+
+  if (gameOver) {
+    if (controllers.down(0, GameControllers::START)) {
+      resetGame();
+      delay(200);  // Debounce
+    }
+    return;  // Exit early, don't run game logic
+  }
 
   // Handle pause mode
   if (controllers.down(0, GameControllers::START)) {
@@ -320,11 +441,17 @@ void loop() {
   }
 
   if (millis() - timer > interval) {
+#ifdef DEBUG
+    Serial.println("Checking collisions and drawing grid");
+#endif
     checkLines();
     refresh();
     if (nextCollision()) {
-      for (short i = 0; i < 4; i++)
-        grid[pieceX + piece[0][i]][pieceY + piece[1][i]] = 1;
+      for (short i = 0; i < 4; i++) {
+        short gridX = pieceX + piece[0][i];
+        short gridY = pieceY + piece[1][i];
+        grid[gridX][gridY] = 1;
+      }
       // Clear the piece trail since it's now part of the grid
       for (short i = 0; i < 4; i++) {
         short x = prevPieceX + prevPiece[0][i];
@@ -369,7 +496,7 @@ void loop() {
   if (controllers.down(0, GameControllers::DOWN)) {
     interval = 20;
   } else {
-    interval = DEFAULT_INTERVAL;
+    interval = progressiveInterval;  // Use the progressive interval instead of DEFAULT_INTERVAL
   }
 
   // when "change" button is pressed
