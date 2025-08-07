@@ -177,6 +177,44 @@ void drawText() {
   }
 }
 
+void displayReceivedText(String customText) {
+  animationStartTime = millis();
+  clearDisplay();
+
+  // Convert String to char array for compatibility
+  char textBuffer[100];
+  customText.toCharArray(textBuffer, sizeof(textBuffer));
+
+  // Calculate text width for scrolling
+  int textWidth = customText.length() * textsize * 6;
+
+  for (int16_t x = display.width(); x > -textWidth; x--) {
+    // Randomize first 3 rows (10 random pixels)
+    for (int i = 0; i < 10; i++) {
+      int row = random(0, 3);
+      int col = random(0, display.width());
+      display.drawPixel(col, row, random(2));
+    }
+
+    // Randomize last 3 rows (10 random pixels)
+    for (int i = 0; i < 10; i++) {
+      int row = random(display.height() - 3, display.height());
+      int col = random(0, display.width());
+      display.drawPixel(col, row, random(2));
+    }
+
+    // Draw scrolling custom text in the middle
+    display.setCursor(x, 4);
+    display.print(customText);
+    display.display();
+
+    // Check for timeout
+    if ((millis() - animationStartTime) >= ANIMATION_DURATION * 2) {
+      break;
+    }
+  }
+}
+
 void matrix() {
   // Reset stop flag for this program
   stopProgram = false;
@@ -326,6 +364,24 @@ void loop() {
   int numAnimations = 7;
 
   while (true) {
+    // Check for serial input
+    if (Serial.available() > 0) {
+      // Read the incoming text
+      String receivedText = Serial.readString();
+      receivedText.trim();  // Remove any whitespace
+
+      if (receivedText.length() > 0) {
+        Serial.print("Received text: ");
+        Serial.println(receivedText);
+
+        // Display the received text
+        displayReceivedText(receivedText);
+
+        // Continue with normal animation cycle
+        continue;
+      }
+    }
+
     // Start the current animation
     Serial.print("Starting animation: ");
     Serial.println(animationNames[currentAnimationIndex]);
