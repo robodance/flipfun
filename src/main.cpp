@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <BROSE9323.h>
 
-// #define DEBUG  // Comment this line to disable serial debug output
+#define DEBUG 0  // Set to 0 to disable serial debug output
 
 #define WHITE 1
 #define DEFAULT_INTERVAL 300
@@ -27,9 +27,6 @@ const char text[] = "20 YRS OF HOMEMADE";
 const uint8_t textsize = 1;
 
 void clearDisplay(int delayMs = 0) {
-  display.fillScreen(1);
-  display.display();
-  delay(100);
   display.fillScreen(0);
   display.display();
   delay(100);
@@ -47,7 +44,7 @@ void setup() {
   pinMode(MIC_PIN, INPUT);
 
   // Initialize serial communication for debugging
-  Serial.begin(9600);
+  Serial.begin(115200);
 
   randomSeed(analogRead(0));
   delay(100);
@@ -59,6 +56,12 @@ void randomFlip() {
 
   // Program loop - runs until stopProgram is set to true or 30 seconds pass
   while (!stopProgram && (millis() - animationStartTime) < ANIMATION_DURATION) {
+    // Check for serial input
+    if (Serial.available() > 0) {
+      stopProgram = true;
+      break;
+    }
+
     // Flip a random number of dots (between 5 and 30)
     int numDots = random(5, 100);  // random(5, 31) gives 5 to 30 inclusive
 
@@ -79,6 +82,12 @@ void randomFlicker() {
 
   // Program loop - runs until stopProgram is set to true or 30 seconds pass
   while (!stopProgram && (millis() - animationStartTime) < ANIMATION_DURATION) {
+    // Check for serial input
+    if (Serial.available() > 0) {
+      stopProgram = true;
+      break;
+    }
+
     // Set entire screen to random black or white using drawPixel
     int color = random(2);
     for (int x = 0; x < WIDTH; x++) {
@@ -107,6 +116,12 @@ void sweep() {
 
   // Program loop - runs until stopProgram is set to true or 30 seconds pass
   while (!stopProgram && (millis() - animationStartTime) < ANIMATION_DURATION) {
+    // Check for serial input
+    if (Serial.available() > 0) {
+      stopProgram = true;
+      break;
+    }
+
     // Shift all column colors one step to the right
     for (int x = WIDTH; x > 0; x--) {
       columnColors[x] = columnColors[x - 1];
@@ -133,9 +148,14 @@ void lines() {
   // Reset stop flag for this program
   stopProgram = false;
 
-  display.setDirect(true);
   // Program loop - runs until stopProgram is set to true or 30 seconds pass
   while (!stopProgram && (millis() - animationStartTime) < ANIMATION_DURATION) {
+    // Check for serial input
+    if (Serial.available() > 0) {
+      stopProgram = true;
+      break;
+    }
+
     // Randomly flip whole columns across the entire width
     for (int x = 0; x < WIDTH; x++) {
       // Randomly decide if this column should be flipped
@@ -209,7 +229,13 @@ void displayReceivedText(String customText) {
     display.display();
 
     // Check for timeout
-    if ((millis() - animationStartTime) >= ANIMATION_DURATION * 2) {
+    if ((millis() - animationStartTime) >= ANIMATION_DURATION * 1.5) {
+      break;
+    }
+
+    // Check for serial input
+    if (Serial.available() > 0) {
+      stopProgram = true;
       break;
     }
   }
@@ -227,11 +253,11 @@ void matrix() {
     int brightness;
   };
 
-  RainDrop drops[WIDTH];
+  RainDrop drops[WIDTH / 2];
 
   // Initialize rain drops
-  for (int i = 0; i < WIDTH; i++) {
-    drops[i].x = i;
+  for (int i = 0; i < WIDTH / 2; i++) {
+    drops[i].x = random(0, WIDTH);  // Random x position instead of fixed
     drops[i].y = random(-HEIGHT, 0);
     drops[i].speed = random(1, 4);
     drops[i].brightness = random(1, 3);
@@ -239,11 +265,21 @@ void matrix() {
 
   // Program loop - runs until stopProgram is set to true or timeout
   while (!stopProgram && (millis() - animationStartTime) < ANIMATION_DURATION) {
-    // Clear screen to black
-    display.fillScreen(0);
+    // Check for serial input
+    if (Serial.available() > 0) {
+      stopProgram = true;
+      break;
+    }
+
+    // Clear screen to black manually
+    for (int x = 0; x < WIDTH; x++) {
+      for (int y = 0; y < HEIGHT; y++) {
+        display.drawPixel(x, y, 0);
+      }
+    }
 
     // Update and draw rain drops
-    for (int i = 0; i < WIDTH; i++) {
+    for (int i = 0; i < WIDTH / 2; i++) {
       // Move drop down
       drops[i].y += drops[i].speed;
 
@@ -308,8 +344,10 @@ void sound(bool simulate = false) {
       micValue = pulseIn(MIC_PIN, HIGH);
     }
 
-    Serial.print("Microphone value: ");
-    Serial.println(micValue);
+    if (DEBUG) {
+      Serial.print("Microphone value: ");
+      Serial.println(micValue);
+    }
     // Check if sound level is above threshold (90)
     if (micValue > 90) {
       // Debug: output sensor value to serial
@@ -320,19 +358,21 @@ void sound(bool simulate = false) {
       circleColor = random(2);
 
       // Debug: output circle details
-      Serial.print("Drawing circle - Radius: ");
-      Serial.print(radius);
-      Serial.print(", Value: ");
-      Serial.print(micValue);
+      if (DEBUG) {
+        Serial.print("Drawing circle - Radius: ");
+        Serial.print(radius);
+        Serial.print(", Value: ");
+        Serial.print(micValue);
+
+        Serial.print(", Color: ");
+        Serial.println(circleColor);
+      }
 
       // Choose random position for circle center
       int centerX = random(radius, WIDTH - radius);
       int centerY = random(radius, HEIGHT - radius);
 
       // Randomly choose circle color (black or white)
-
-      Serial.print(", Color: ");
-      Serial.println(circleColor);
 
       // Draw filled circle manually using drawPixel
       for (int y = -radius; y <= radius; y++) {
@@ -364,27 +404,33 @@ void loop() {
   int numAnimations = 7;
 
   while (true) {
-    // Check for serial input
+    // Check for serial input before starting each animation
     if (Serial.available() > 0) {
+      // Wait a bit for complete data to arrive
+      delay(10);
+
       // Read the incoming text
       String receivedText = Serial.readString();
       receivedText.trim();  // Remove any whitespace
 
       if (receivedText.length() > 0) {
+        stopProgram = true;
         Serial.print("Received text: ");
         Serial.println(receivedText);
 
         // Display the received text
         displayReceivedText(receivedText);
-
+        stopProgram = false;
         // Continue with normal animation cycle
         continue;
       }
     }
 
     // Start the current animation
-    Serial.print("Starting animation: ");
-    Serial.println(animationNames[currentAnimationIndex]);
+    if (DEBUG) {
+      Serial.print("Starting animation: ");
+      Serial.println(animationNames[currentAnimationIndex]);
+    }
 
     // Record start time and reset stop flag
     animationStartTime = millis();
@@ -396,21 +442,18 @@ void loop() {
         matrix();
         break;
       case 1:
-        sound(true);
+        randomFlip();
         break;
       case 2:
         sweep();
         break;
       case 3:
-        randomFlip();
-        break;
-      case 4:
         randomFlicker();
         break;
-      case 5:
+      case 4:
         lines();
         break;
-      case 6:
+      case 5:
         drawText();
         break;
     }
