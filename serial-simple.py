@@ -1,18 +1,42 @@
 #!/usr/bin/env python3
 """
-Simple script to send a string over serial to /dev/ttyACM0 at 115200 baud.
+Simple script to send a string over serial to Arduino at 115200 baud.
 """
 
 import serial
+import serial.tools.list_ports
 import time
+
+def find_arduino_port():
+    """Find the Arduino USB serial port."""
+    ports = serial.tools.list_ports.comports()
+
+    for port in ports:
+        # Look for common Arduino identifiers
+        if any(identifier in port.description.lower() for identifier in ['arduino', 'usb serial', 'usb-serial', 'ch340', 'cp210']):
+            print(f"Found Arduino on port: {port.device}")
+            return port.device
+
+    # If no Arduino found, list all available ports
+    print("Arduino not found. Available ports:")
+    for port in ports:
+        print(f"  {port.device}: {port.description}")
+
+    return None
 
 def send_string():
     """Send a string to the Arduino."""
     try:
+        # Find Arduino port
+        arduino_port = find_arduino_port()
+        if not arduino_port:
+            print("No Arduino found. Please check USB connection.")
+            return
+
         # Open serial connection
         ser = serial.Serial()
         ser.baudrate = 115200
-        ser.port = '/dev/ttyACM0'
+        ser.port = arduino_port
         ser.writeTimeout = 0.2
         ser.timeout = 1  # Add timeout for reading
 
