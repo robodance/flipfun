@@ -200,6 +200,7 @@ void drawText() {
 void displayReceivedText(String customText) {
   animationStartTime = millis();
   clearDisplay();
+  delay(100);
 
   // Convert String to char array for compatibility
   char textBuffer[100];
